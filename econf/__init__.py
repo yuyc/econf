@@ -15,7 +15,7 @@ import warnings
 __version__ = '0.1'
 
 __all__ = ['CONF', 'BaseConf', 'UndefinedOption', 'UnsetOption',
-           'BaseOpt', 'StrOpt', 'BoolOpt']
+           'BaseOpt', 'StrOpt', 'BoolOpt', 'IntOpt']
 
 
 class UndefinedOption(Exception):
