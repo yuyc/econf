@@ -125,7 +125,7 @@ class Config(object):
         if not config_file or not os.path.exists(config_file):
             warnings.warn('Config file not found: %s' % config_file)
         else:
-            self.parse_conf_file()
+            self.parse_conf_file(config_file)
 
         # TODO(wangst): maybe there are better way to check if all
         # required option has value.
