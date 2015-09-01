@@ -1,4 +1,5 @@
-"""Define configurations for api server"""
+"""Easy to define config options and reference them."""
+
 from __future__ import print_function
 
 try:
@@ -10,6 +11,7 @@ import os.path
 import sys
 import warnings
 
+__version__ = '0.1'
 
 __all__ = ['CONF', 'BaseConf', 'UndefinedOption', 'UnsetOption',
            'BaseOpt', 'StrOpt', 'BoolOpt']
