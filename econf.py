@@ -11,7 +11,8 @@ import sys
 import warnings
 
 
-__all__ = ['CONF', 'UndefinedOption', 'UnsetOption']
+__all__ = ['CONF', 'BaseConf', 'UndefinedOption', 'UnsetOption',
+           'BaseOpt', 'StrOpt', 'BoolOpt']
 
 
 class UndefinedOption(Exception):
@@ -20,6 +21,37 @@ class UndefinedOption(Exception):
 
 class UnsetOption(Exception):
     """Raised if required option has no value."""
+
+
+class BaseOpt(object):
+    def __init__(self, name=None, default='', help=None, required=False, cmdline=False):
+        self.name = name
+        self.default = default
+        self.help = help
+        self.required = required
+        self.cmdline = cmdline
+
+    def __get__(self, instance, owner):
+        convert = self.type()
+        return convert(CONF._get(self.name, owner.__section__))
+
+    def type(self):
+        raise NotImplementedError()
+
+
+class StrOpt(BaseOpt):
+    def type(self):
+        return str
+
+
+class IntOpt(BaseOpt):
+    def type(self):
+        return int
+
+
+class BoolOpt(BaseOpt):
+    def type(self):
+        return bool
 
 
 class Config(object):
@@ -60,6 +92,7 @@ class Config(object):
         self._opt_parser.add_option('-f', '--conf',
                                     dest='conf',
                                     help="Configuration file.")
+        self._converters = {}
 
     def parse_cmdline(self, argv=None):
         """Parse cmdline args"""
@@ -98,7 +131,7 @@ class Config(object):
                 assert self.get(opt, section=section), \
                     "[%s]%s is not config" % (section, opt)
 
-    def define(self, option, section=None, type_=str, default=None, cmdline=False,
+    def define(self, option, section=None, type=str, default=None, cmdline=False,
                required=False, help=None):
         """Define a option.
 
@@ -124,16 +157,45 @@ class Config(object):
         except (ConfigParser.DuplicateSectionError, ValueError):
             pass
 
+        assert callable(type)
+        self._converters[(section, option)] = type
+
         self._config_parser.set(section, option, str(default or ''))
         if required:
             self._required.append((section, option))
+
+    def add_opt(self, opt, section=None):
+        assert isinstance(opt, BaseOpt)
+        self.define(opt.name, section=section, type=opt.type(),
+                    default=opt.default, required=opt.required,
+                    cmdline=opt.cmdline, help=opt.help)
 
     def _cmd_option(self, section, option):
         if section.upper() != ConfigParser.DEFAULTSECT:
             option = section.lower() + '_' + option
         return option
 
+    def __getattr__(self, item):
+        class SubSection(object):
+            def __init__(self, name, config):
+                assert isinstance(config, Config)
+                self.name = name
+                self.config = config
+
+            def __getattr__(self, item):
+                return self.config.get(item, section=self.name)
+
+        if self._config_parser.has_section(item):
+            return SubSection(item, self)
+        return self.get(item)
+
     def get(self, option, section=None, **kwargs):
+        section = section or ConfigParser.DEFAULTSECT
+        convert = self._converters.get((section, option), str)
+        val = self._get(option, section, **kwargs)
+        return convert(val)
+
+    def _get(self, option, section=None, **kwargs):
         """Return the value of the option.
 
         :arg str option: name of the option.
@@ -170,17 +232,69 @@ class Config(object):
 CONF = Config()
 
 
+class ConfMeta(type):
+    def __new__(meta_cls, cls, bases, attrs):
+        section = attrs.get('__section__', ConfigParser.DEFAULTSECT)
+        for name, val in attrs.items():
+            if not isinstance(val, BaseOpt):
+                continue
+            if not val.name:
+                val.name = name
+            CONF.add_opt(opt=val, section=section)
+        return type.__new__(meta_cls, cls, bases, attrs)
+
+
+class BaseConf(metaclass=ConfMeta):
+    """Base Conf that make defining options easy.
+
+    For default options, that belong to 'default' section::
+
+        class DefaultConf(BaseConf):
+            host = StrOpt(default='0.0.0.0', cmdline=True,
+                          help='ip address')
+            port = IntOpt(default=9090, cmdline=True,
+                          help='tcp port')
+
+    For options belong to other section::
+
+        class ZKConf(BaseConf):
+            __section__ = 'zk'
+
+            hosts = StrOpt(
+                required=True,
+                help='list of zookeeper ip:port pair. i.e. localhost:2181')
+            max_retry = IntOpt(
+                default=3,
+                help='number of tries before giving up connecting')
+
+    There are two ways to reference an option.
+    First, use the specific Conf Class::
+
+        host, port = DefaultConf.host, DefaultConf.port
+
+    Second, use the general CONF::
+
+        host, port = CONF.host, CONF.port
+
+    """
+
+
 if __name__ == '__main__':
-    CONF.define('address', section='zk', cmdline=True,
-                required=True, help="the ip address of the zookeeper server")
-    CONF.define('port', section='zk', cmdline=True,
-                help="the ip address of the zookeeper server")
-    CONF.define('host', cmdline=True, default='0.0.0.0',
-                help='the ip address on which the api server will listen')
-    CONF.define('port', cmdline=True, default='9090',
-                help='the port on which the api server will listen')
+    class ZKConf(BaseConf):
+        __section__ = 'zk'
+        hosts = StrOpt(required=True, cmdline=True,
+                       help="address of zookeeper hosts, i.e. localhost:2181")
+        max_retry = IntOpt(default=3,
+                           help="max number of try before give up connecting")
+
+    class DefaultConf(BaseConf):
+        host = StrOpt(default='0.0.0.0', cmdline=True,
+                      help='ip address')
+        port = IntOpt(default=9090, cmdline=True,
+                      help='tcp port')
+
+    # parse command line and config file
     CONF()
-    print('zookeeper address: %s, port: %s' % (
-        CONF.get('address', section='zk'),
-        CONF.get('port', section='zk', default=9999)))
-    print('bind_address:', (CONF.get('host'), CONF.get('port')))
+
+    print('zookeeper config:', (ZKConf.hosts, CONF.zk.max_retry))
+    print('bind_address:', (CONF.host, CONF.get('port')))
