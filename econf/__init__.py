@@ -36,7 +36,8 @@ class BaseOpt(object):
 
     def __get__(self, instance, owner):
         convert = self.type()
-        return convert(CONF._get(self.name, owner.__section__))
+        section = getattr(owner, "__section__", ConfigParser.DEFAULTSECT)
+        return convert(CONF._get(self.name, section))
 
     def type(self):
         raise NotImplementedError()
