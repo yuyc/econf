@@ -1,3 +1,4 @@
+
 """Easy to define config options and reference them."""
 
 from __future__ import print_function
