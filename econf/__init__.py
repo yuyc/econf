@@ -247,6 +247,23 @@ class Config(object):
         format = format or LOGGING_FORMAT
         logging.basicConfig(level=level, format=format)
 
+    def dump(self, logger=None):
+        logger = logger or logging.getLogger()
+        logger.info("="*10 + " Configuration " + "="*10)
+        config_parser = self._config_parser
+        logger.info('[%s]', ConfigParser.DEFAULTSECT)
+        for name, _ in config_parser.items(ConfigParser.DEFAULTSECT):
+            value = self.get(name, default=None)
+            logger.info('%s = "%s"' % (name, value))
+        for section in config_parser.sections():
+            logger.info('[%s]', section)
+            for name in config_parser.options(section):
+                if config_parser.has_option(None, name):
+                    continue
+                value = self.get(name, section=section, default=None)
+                logger.info('%s = "%s"' % (name, value))
+        logger.info("="*34)
+
 
 CONF = Config()
 
@@ -325,13 +342,10 @@ def test():
     # parse command line and config file
     CONF()
     CONF.setup_logging()
+    CONF.dump()
 
     logging.debug('By default, this should not be seen.')
-    logging.info('zookeeper config: %s', (ZKConf.hosts, CONF.zk.max_retry))
-    logging.info('bind_address: %s', (CONF.host, CONF.get('port')))
-    logging.warning('keep_alive: %s', DefaultConf.keep_alive)
-    logging.error('run in debug mode: %s', CONF.debug)
-    logging.error('log level: %s', CONF.log_level)
+    logging.info('Nice to see you!')
 
 
 if __name__ == '__main__':
