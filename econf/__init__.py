@@ -243,6 +243,13 @@ class Config(object):
             return kwargs['default']
         raise UnsetOption('Section: %s, option: %s' % (section, option))
 
+    def options(self, section=None):
+        if section is None or section == ConfigParser.DEFAULTSECT:
+            return [item[0] for item in
+                    self._config_parser.items(ConfigParser.DEFAULTSECT)]
+        return [name for name in self._config_parser.options(section)
+                if not self._config_parser.has_option(None, name)]
+
     def setup_logging(self, level=None, format=None):
         level = level or CONF.get('log_level', default='info')
         level = getattr(logging, str(level).upper(), 'INFO')
@@ -359,6 +366,8 @@ def test():
     logging.debug('By default, this should not be seen.')
     logging.info('Nice to see you!')
 
+    logging.info('default options: %s', CONF.options())
+    logging.info('zk options: %s', CONF.options('zk'))
 
 if __name__ == '__main__':
     test()
