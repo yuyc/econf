@@ -191,17 +191,17 @@ class Config(object):
         return option
 
     def __getattr__(self, item):
+        config, section = self, item
+
         class SubSection(object):
-            def __init__(self, name, config):
-                assert isinstance(config, Config)
-                self.name = name
-                self.config = config
-
             def __getattr__(self, item):
-                return self.config.get(item, section=self.name)
+                return config.get(item, section=section)
 
-        if self._config_parser.has_section(item):
-            return SubSection(item, self)
+            def options(self):
+                return config.options(section)
+
+        if self._config_parser.has_section(section):
+            return SubSection()
         return self.get(item)
 
     def get(self, option, section=None, **kwargs):
@@ -367,7 +367,7 @@ def test():
     logging.info('Nice to see you!')
 
     logging.info('default options: %s', CONF.options())
-    logging.info('zk options: %s', CONF.options('zk'))
+    logging.info('zk options: %s', CONF.zk.options())
 
 if __name__ == '__main__':
     test()
