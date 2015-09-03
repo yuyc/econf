@@ -247,8 +247,7 @@ class Config(object):
         if section is None or section == ConfigParser.DEFAULTSECT:
             return [item[0] for item in
                     self._config_parser.items(ConfigParser.DEFAULTSECT)]
-        return [name for name in self._config_parser.options(section)
-                if not self._config_parser.has_option(None, name)]
+        return [name for name in self._config_parser._sections[section]]
 
     def setup_logging(self, level=None, format=None):
         level = level or CONF.get('log_level', default='info')
@@ -262,14 +261,12 @@ class Config(object):
         logger.info("="*10 + " Configuration " + "="*10)
         config_parser = self._config_parser
         logger.info('[%s]', ConfigParser.DEFAULTSECT)
-        for name, _ in config_parser.items(ConfigParser.DEFAULTSECT):
+        for name in self.options():
             value = self.get(name, default=None)
             logger.info('%s = "%s"' % (name, value))
         for section in config_parser.sections():
             logger.info('[%s]', section)
-            for name in config_parser.options(section):
-                if config_parser.has_option(None, name):
-                    continue
+            for name in self.options(section):
                 value = self.get(name, section=section, default=None)
                 logger.info('%s = "%s"' % (name, value))
         logger.info("="*34)
@@ -347,6 +344,8 @@ def test():
                        help="address of zookeeper hosts, i.e. localhost:2181")
         max_retry = IntOpt(default=3,
                            help="max number of try before give up connecting")
+        keep_alive = BoolOpt(default=True,
+                             help="the same as the default one, on purpose")
 
     class DefaultConf(BaseConf):
         host = StrOpt(default='0.0.0.0', cmdline=True,
