@@ -105,12 +105,14 @@ class Config(object):
         self._opt_parser.add_option('-f', '--conf',
                                     dest='conf',
                                     help="Configuration file.")
+        self._opt_parser.add_option('-v', "--version",
+                                    action="version",
+                                    help="show program's version number and exit")
         self._converters = {}
 
     def parse_cmdline(self, argv=None):
         """Parse cmdline args"""
         options, args = self._opt_parser.parse_args(argv)
-
         if args:
             sys.stderr.write('Unknown arguments: %s\n' % str(args))
             sys.exit(1)
@@ -249,6 +251,7 @@ class Config(object):
 
     def dump(self, logger=None):
         logger = logger or logging.getLogger()
+        logger.info("Version: %s", self.version)
         logger.info("="*10 + " Configuration " + "="*10)
         config_parser = self._config_parser
         logger.info('[%s]', ConfigParser.DEFAULTSECT)
@@ -263,6 +266,14 @@ class Config(object):
                 value = self.get(name, section=section, default=None)
                 logger.info('%s = "%s"' % (name, value))
         logger.info("="*34)
+
+    @property
+    def version(self):
+        return self._opt_parser.version
+
+    @version.setter
+    def version(self, ver):
+        self._opt_parser.version = ver
 
 
 CONF = Config()
@@ -340,6 +351,7 @@ def test():
             help='keep the connection alive when the request is over')
 
     # parse command line and config file
+    CONF.version = '0.1'
     CONF()
     CONF.setup_logging()
     CONF.dump()
