@@ -55,7 +55,14 @@ class IntOpt(BaseOpt):
 
 class BoolOpt(BaseOpt):
     def type(self):
-        return bool
+        def en_bool(obj):
+            """Enhanced bool converter. Only certain strings stands
+            for ``True`` .
+            """
+            if isinstance(obj, str):
+                return obj in ('True', 'true', 'T', 't')
+            return bool(obj)
+        return en_bool
 
 
 class Config(object):
@@ -164,7 +171,7 @@ class Config(object):
         assert callable(type)
         self._converters[(section, option)] = type
 
-        self._config_parser.set(section, option, str(default or ''))
+        self._config_parser.set(section, option, str(default) or '')
         if required:
             self._required.append((section, option))
 
@@ -296,9 +303,13 @@ if __name__ == '__main__':
                       help='ip address')
         port = IntOpt(default=9090, cmdline=True,
                       help='tcp port')
+        keep_alive = BoolOpt(
+            default=False,
+            help='keep the connection alive when the request is over')
 
     # parse command line and config file
     CONF()
 
     print('zookeeper config:', (ZKConf.hosts, CONF.zk.max_retry))
     print('bind_address:', (CONF.host, CONF.get('port')))
+    print('keep_alive:', DefaultConf.keep_alive)
