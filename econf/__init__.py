@@ -7,6 +7,7 @@ try:
     import configparser as ConfigParser  # py3
 except ImportError:
     import ConfigParser  # py2
+import logging
 import optparse
 import os.path
 import sys
@@ -16,6 +17,8 @@ __version__ = '0.1'
 
 __all__ = ['CONF', 'BaseConf', 'UndefinedOption', 'UnsetOption',
            'BaseOpt', 'StrOpt', 'BoolOpt', 'IntOpt']
+
+LOGGING_FORMAT = '%(asctime)s %(levelname)s %(name)s:%(funcName)s[%(lineno)d] %(message)s'  # NOQA
 
 
 class UndefinedOption(Exception):
@@ -93,7 +96,6 @@ class Config(object):
 
     # TODO(wangst): option type can be set when define an option.
     """
-    LOGGING_FORMAT = '%(asctime)s %(levelname)s %(name)s:%(funcName)s[%(lineno)d] %(message)s'  # NOQA
 
     def __init__(self):
         self._opt_parser = optparse.OptionParser()
@@ -239,6 +241,12 @@ class Config(object):
             return kwargs['default']
         raise UnsetOption('Section: %s, option: %s' % (section, option))
 
+    def setup_logging(self, level=None, format=None):
+        level = level or CONF.get('log_level', default='info')
+        level = getattr(logging, str(level).upper(), 'INFO')
+        format = format or LOGGING_FORMAT
+        logging.basicConfig(level=level, format=format)
+
 
 CONF = Config()
 
@@ -290,7 +298,14 @@ class BaseConf(metaclass=ConfMeta):
     """
 
 
-if __name__ == '__main__':
+class DefaultConf(BaseConf):
+    log_level = StrOpt(default='info', cmdline=True,
+                       help='level of the root logger')
+    debug = BoolOpt(default=False, cmdline=True,
+                    help='whether run in debug mode')
+
+
+def test():
     class ZKConf(BaseConf):
         __section__ = 'zk'
         hosts = StrOpt(required=True, cmdline=True,
@@ -309,7 +324,16 @@ if __name__ == '__main__':
 
     # parse command line and config file
     CONF()
+    CONF.setup_logging()
 
-    print('zookeeper config:', (ZKConf.hosts, CONF.zk.max_retry))
-    print('bind_address:', (CONF.host, CONF.get('port')))
-    print('keep_alive:', DefaultConf.keep_alive)
+    logging.debug('By default, this should not be seen.')
+    logging.info('zookeeper config: %s', (ZKConf.hosts, CONF.zk.max_retry))
+    logging.info('bind_address: %s', (CONF.host, CONF.get('port')))
+    logging.warning('keep_alive: %s', DefaultConf.keep_alive)
+    logging.error('run in debug mode: %s', CONF.debug)
+    logging.error('log level: %s', CONF.log_level)
+
+
+if __name__ == '__main__':
+    test()
+
