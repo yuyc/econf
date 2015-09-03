@@ -121,7 +121,7 @@ class Config(object):
     def parse_conf_file(self, config_file):
         self._config_parser.read(config_file)
 
-    def __call__(self, config_file=None, check_required=False):
+    def __call__(self, default_conf=None, check_required=False):
         """Parse configuration files.
 
         Config files are chosen in below order:
@@ -132,7 +132,7 @@ class Config(object):
 
         self.parse_cmdline()
 
-        config_file = config_file or (self._options and self._options.conf)
+        config_file = (self._options and self._options.conf) or default_conf
 
         if not config_file or not os.path.exists(config_file):
             warnings.warn('Config file not found: %s' % config_file)
@@ -358,7 +358,7 @@ def test():
 
     # parse command line and config file
     CONF.version = '0.1'
-    CONF()
+    CONF('default.conf')
     CONF.setup_logging()
     CONF.dump()
 
