@@ -13,12 +13,14 @@ import os.path
 import sys
 import warnings
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 
 __all__ = ['CONF', 'BaseConf', 'UndefinedOption', 'UnsetOption',
            'BaseOpt', 'StrOpt', 'BoolOpt', 'IntOpt']
 
 LOGGING_FORMAT = '%(asctime)s %(levelname)s %(name)s:%(funcName)s[%(lineno)d] %(message)s'  # NOQA
+
+UNSET = str(object())
 
 
 class UndefinedOption(Exception):
@@ -30,7 +32,7 @@ class UnsetOption(Exception):
 
 
 class BaseOpt(object):
-    def __init__(self, name=None, default='', help=None, required=False, cmdline=False):
+    def __init__(self, name=None, default=UNSET, help=None, required=False, cmdline=False):
         self.name = name
         self.default = default
         self.help = help
@@ -146,8 +148,8 @@ class Config(object):
                 assert self.get(opt, section=section), \
                     "[%s]%s is not config" % (section, opt)
 
-    def define(self, option, section=None, type=str, default=None, cmdline=False,
-               required=False, help=None):
+    def define(self, option, section=None, type=str, default=UNSET,
+               cmdline=False, required=False, help=None):
         """Define a option.
 
         :arg str option: name of the option, which should not start with '-'
@@ -175,7 +177,8 @@ class Config(object):
         assert callable(type)
         self._converters[(section, option)] = type
 
-        self._config_parser.set(section, option, str(default) or '')
+        # NOTE: config parser require value of string type
+        self._config_parser.set(section, option, str(default))
         if required:
             self._required.append((section, option))
 
@@ -227,13 +230,13 @@ class Config(object):
         """
         section = section or ConfigParser.DEFAULTSECT
         cmd_option = self._cmd_option(section, option)
-        value = getattr(self._options, cmd_option, None)
-        if value:
+        value = self._options and getattr(self._options, cmd_option, None)
+        if value is not None:
             return value
 
         try:
             value = self._config_parser.get(section, option)
-            if value:
+            if value is not UNSET:
                 return value
         except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
             err_msg = 'Section: %s, option: %s' % (section, option)
@@ -262,12 +265,12 @@ class Config(object):
         config_parser = self._config_parser
         logger.info('[%s]', ConfigParser.DEFAULTSECT)
         for name in self.options():
-            value = self.get(name, default=None)
+            value = self.get(name)
             logger.info('%s = "%s"' % (name, value))
         for section in config_parser.sections():
             logger.info('[%s]', section)
             for name in self.options(section):
-                value = self.get(name, section=section, default=None)
+                value = self.get(name, section=section)
                 logger.info('%s = "%s"' % (name, value))
         logger.info("="*34)
 
@@ -346,6 +349,7 @@ def test():
                            help="max number of try before give up connecting")
         keep_alive = BoolOpt(default=True,
                              help="the same as the default one, on purpose")
+        user = StrOpt(default='', help='zookeeper user')
 
     class DefaultConf(BaseConf):
         host = StrOpt(default='0.0.0.0', cmdline=True,
@@ -358,7 +362,7 @@ def test():
 
     # parse command line and config file
     CONF.version = '0.1'
-    CONF('default.conf')
+    CONF('default.conf', check_required=True)
     CONF.setup_logging()
     CONF.dump()
 
@@ -368,6 +372,8 @@ def test():
     logging.info('default options: %s', CONF.options())
     logging.info('zk options: %s', CONF.zk.options())
 
+    logging.info('user: %s', ZKConf.user)
+
+
 if __name__ == '__main__':
     test()
-
