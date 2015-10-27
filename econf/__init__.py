@@ -13,7 +13,7 @@ import os.path
 import sys
 import warnings
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 
 __all__ = ['CONF', 'BaseConf', 'UndefinedOption', 'UnsetOption',
            'BaseOpt', 'StrOpt', 'BoolOpt', 'IntOpt']
@@ -332,6 +332,16 @@ class BaseConf(metaclass=ConfMeta):
 
     """
 
+    @classmethod
+    def get(cls, opt, **kwargs):
+        section = getattr(cls, '__section__', ConfigParser.DEFAULTSECT)
+        return CONF.get(opt, section=section, **kwargs)
+
+    @classmethod
+    def options(cls):
+        section = getattr(cls, '__section__', ConfigParser.DEFAULTSECT)
+        return CONF.options(section)
+
 
 class DefaultConf(BaseConf):
     log_level = StrOpt(default='info', cmdline=True,
@@ -371,8 +381,11 @@ def test():
 
     logging.info('default options: %s', CONF.options())
     logging.info('zk options: %s', CONF.zk.options())
+    zk_options = {name: ZKConf.get(name) for name in ZKConf.options()}
+    logging.info('zk options: %s', zk_options)
 
     logging.info('user: %s', ZKConf.user)
+    logging.info('keep_alive: %s', ZKConf.get('keep_alive'))
 
 
 if __name__ == '__main__':
