@@ -123,7 +123,7 @@ class Config(object):
     def parse_conf_file(self, config_file):
         self._config_parser.read(config_file)
 
-    def __call__(self, default_conf=None, check_required=False):
+    def __call__(self, default_conf=None, check_required=False, argv=None):
         """Parse configuration files.
 
         Config files are chosen in below order:
@@ -132,7 +132,7 @@ class Config(object):
         * cli option: conf
         """
 
-        self.parse_cmdline()
+        self.parse_cmdline(argv)
 
         config_file = (self._options and self._options.conf) or default_conf
 
